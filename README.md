@@ -1,8 +1,5 @@
-# Networks Project
+## IITK Networks Project
 
-## Running Instructions
+## Implemented 
 
-```
-pip install Flask
-FLASK_APP=server.py flask run
-```
+1. Login / Register

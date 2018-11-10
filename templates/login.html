@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/login.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block body %}
+<div id="login-block">
+    <img src="{{ url_for('static', filename='img/pusheen.png')}}" id="logo">
+
+    <h1>Login</h1>
+
+    {% if login == "failed" %}
+    <div class="error">Invalid username/password combination</div>
+    {% endif %}
+
+    <form method=POST action="{{ url_for('login') }}">
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="password" name="pass" placeholder="Password" required>
+
+        <button type="submit">Log In</button>
+    </form>
+    <div>
+        Don't have an account? <a href="{{ url_for('register') }}">Sign up here</a>.
+    </div>
+</div>
+{% endblock %}
