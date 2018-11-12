@@ -89,17 +89,16 @@ def register():
     return render_template("register.html")
 
 
-@socketio.on("connect", namespace="/users")
+@socketio.on("connect", namespace="/cattalks")
 def connect():
     print "client %s connected" % request.sid
 
 
-@socketio.on("join", namespace="/users")
+@socketio.on("join", namespace="/cattalks")
 def join_new_client():
     username = session["username"]
 
     username = username.encode('ascii', 'ignore')
-    print "+" + username + "+"
     join_room(username)
 
 
@@ -144,7 +143,7 @@ def accept_message_request(user1, user2):
     )
 
 
-@socketio.on("send request", namespace="/users")
+@socketio.on("send request", namespace="/cattalks")
 def send_request(username):
     users = mongo.db.users
     user = users.find_one({"username": username})
@@ -174,7 +173,7 @@ def send_request(username):
         return {"success": False, "message": "User %s does not exist" % username}
 
 
-@socketio.on("accept request", namespace="/users")
+@socketio.on("accept request", namespace="/cattalks")
 def accept_request(username):
     users = mongo.db.users
 
@@ -186,7 +185,7 @@ def accept_request(username):
     return {"success": True}
 
 
-@socketio.on("friends request", namespace="/users")
+@socketio.on("friends request", namespace="/cattalks")
 def friends_request():
     users = mongo.db.users
 
@@ -205,7 +204,7 @@ def friends_request():
     }
 
 
-@socketio.on("read request", namespace="/feed")
+@socketio.on("read request", namespace="/cattalks")
 def read_request(username):
     users = mongo.db.users
 
@@ -219,7 +218,7 @@ def read_request(username):
     }
 
 
-@socketio.on("feed request", namespace="/feed")
+@socketio.on("feed request", namespace="/cattalks")
 def feed_request():
     users = mongo.db.users
 
@@ -231,7 +230,7 @@ def feed_request():
     }
 
 
-@socketio.on("read receipt", namespace="/feed")
+@socketio.on("read receipt", namespace="/cattalks")
 def read_receipt(username):
     users = mongo.db.users
 
@@ -254,7 +253,7 @@ def read_receipt(username):
     return {"success": True}
 
 
-@socketio.on("send message", namespace="/feed")
+@socketio.on("send message", namespace="/cattalks")
 def send_message(username, text):
     users = mongo.db.users
 
@@ -284,13 +283,11 @@ def send_message(username, text):
     username1 = username1.encode('ascii', 'ignore')
     username2 = username2.encode('ascii', 'ignore')
 
-    print "+" + username1 + "+"
     emit(
-        "feed request", {"type": "sent", "text": text}, room=username1, namespace="/feed"
+        "feed request", {"user": username2, "type": "sent", "text": text}, room=username1, namespace="/cattalks"
     )
-    print "+" + username2 + "+"
     emit(
-        "feed request", {"type": "recv", "text": text}, room=username2, namespace="/feed"
+        "feed request", {"user": username1, "type": "recv", "text": text}, room=username2, namespace="/cattalks"
     )
 
     return {"success": True}
@@ -298,4 +295,5 @@ def send_message(username, text):
 
 if __name__ == "__main__":
     # app.run(debug=True, host="0.0.0.0", port=6343)
-    socketio.run(app, debug=True, host="127.0.0.1")
+    # socketio.run(app, debug=True, host="127.0.0.1")
+    socketio.run(app, debug=True, host="0.0.0.0", port=6343)

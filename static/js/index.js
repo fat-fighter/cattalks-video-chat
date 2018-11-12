@@ -1,6 +1,5 @@
-var url;
+var socket;
 var active_user;
-var socket, feed_socket;
 
 let socket_config = {
     upgrade: false,
@@ -11,40 +10,57 @@ var request_username_input;
 
 
 function setup_user_socket() {
-    user_socket = io.connect(url + "/users", socket_config);
-    user_socket.on("connect", function () {
-        user_socket.emit("join", function () {
+    socket.on("connect", function () {
+        console.log("Connected to namespace users");
+
+        socket.emit("join", function () {
             console.log("Joined room");
         });
-        console.log("Connected to namespace users");
     });
 }
 
 function setup_feed_socket() {
-    feed_socket = io.connect(url + "/feed", socket_config);
-    feed_socket.on("connect", function () {
-        console.log("Connected to namespace feed");
-    });
+    let messages_container = document.querySelector("#messages-container");
+    let target = $(messages_container);
 
-    feed_socket.on("feed request", function (data) {
-        console.log(data);
+    socket.on("feed request", function (message) {
+        if (message.user == active_user) {
+            messages_container.innerHTML += `
+                <div class="message ` + message.type + ` unread">
+                    <span>` + message.text + `</span>
+                </div>
+            `;
+
+            target.scrollTop(target.height() + 100);
+        }
     });
 }
 
 
 $(document).ready(function () {
-    url = location.protocol + "//" + document.domain + ":" + location.port;
+    let url = location.protocol + "//" + document.domain + ":" + location.port;
+
+    socket = io.connect(url + "/cattalks", socket_config);
 
     setup_user_socket();
     setup_feed_socket();
+
+    $('#message-text').keypress(function (e) {
+        var key = e.which;
+        if (key == 13) {
+            send_message();
+            return false;
+        }
+    });
 
     load_friends();
 
     request_username_input = document.querySelector("#request-username-input");
 });
 
+
 function load_friends() {
-    user_socket.emit("friends request", function (message) {
+    socket.emit("friends request", function (message) {
         if (message.success) {
             let friends_blocks_container = document.querySelector("#friend-blocks-container");
 
@@ -62,10 +78,11 @@ function load_friends() {
     });
 }
 
+
 function send_message_request() {
     let username = request_username_input.value;
     if (username != "") {
-        user_socket.emit("send request", username, function (message) {
+        socket.emit("send request", username, function (message) {
             if (message.success) {
                 console.log("Info: " + message.message);
             }
@@ -88,9 +105,10 @@ function read_messages(elem) {
     }
     active_user = username;
 
-    feed_socket.emit("read request", username, function (message) {
+    socket.emit("read request", username, function (message) {
         if (message.success) {
             let messages_container = document.querySelector("#messages-container");
+            let target = $(messages_container);
 
             messages_container.innerHTML = "";
 
@@ -111,18 +129,20 @@ function read_messages(elem) {
                     let m = message.feed[index];
 
                     messages_container.innerHTML += `
-                    <div class="message ` + m.type + ` unread">
-                        <span>` + m.text + `</span>
-                    </div>
-                `;
+                        <div class="message ` + m.type + ` unread">
+                            <span>` + m.text + `</span>
+                        </div>
+                    `;
                 }
             }
 
-            feed_socket.emit("read receipt", username, function (res) {
+            socket.emit("read receipt", username, function (res) {
                 if (!res.success) {
                     console.log(res.message);
                 }
             })
+
+            target.scrollTop(target.height() + 100);
         }
     });
 }
@@ -134,8 +154,8 @@ function send_message() {
     elem.value = "";
 
 
-    if (active_user != null) {
-        feed_socket.emit("send message", active_user, m, function (message) {
+    if (active_user != null && m != "") {
+        socket.emit("send message", active_user, m, function (message) {
             if (!message.success) {
                 console.log("Error: " + message.message);
             }

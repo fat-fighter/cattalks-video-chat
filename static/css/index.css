@@ -132,7 +132,7 @@ body {
   height: calc(100% - 50px);
   overflow-x: hidden;
   overflow-y: auto;
-  padding-top: 30px;
+  padding: 30px 0;
 }
 #wrapper #message-wrapper #messages-container .message {
   line-height: 20px;
@@ -195,14 +195,15 @@ body {
 }
 #wrapper #message-wrapper #message-form input[type=text] {
   border-top: 1px solid #f0f0f0;
-  width: calc(100% - 64px);
+  width: calc(100% - 84px);
 }
 #wrapper #message-wrapper #message-form input[type=button] {
-  background-color: #0084ff;
+  background-color: slategray;
   border-top: 1px solid #0084ff;
   color: white;
-  font-size: 22px;
-  width: 60px;
+  font-size: 14px;
+  text-align: center;
+  width: 80px;
 }
 #wrapper #message-wrapper #message-form input[type=button]:active {
   background-color: #646496;
