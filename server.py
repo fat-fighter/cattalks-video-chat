@@ -307,7 +307,7 @@ def send_message(username, text):
 
 # VIDEO PART added by DEV
 
-@socketio.on('input image', namespace='/test')
+@socketio.on('input image', namespace='/cattalks')
 def input_message(inp):
 
     username = session['username'];
@@ -324,7 +324,7 @@ def input_message(inp):
                 videoChatlive.pop(to_username);
 
 
-@socketio.on('disconnect', namespace='/test')
+@socketio.on('disconnect', namespace='/cattalks')
 def disconnect_user():
     username = session['username']
 
@@ -349,7 +349,7 @@ def disconnect_user():
     app.logger.info(username+" has exited Cat Talks without logging out ");
 
 
-@socketio.on('leave', namespace = '/test') # when a client logs out , this event will be sent
+@socketio.on('leave', namespace = '/cattalks') # when a client logs out , this event will be sent
 def leave_client():
 
     username = session['username'];
@@ -371,7 +371,7 @@ def leave_client():
 
     app.logger.info(username+" has exited Cat Talks by loggin out gracefully ");
 
-@socketio.on('end video chat', namespace = '/test')
+@socketio.on('end video chat', namespace = '/cattalks')
 def end_video_chat():
 
     username = session['username'];
@@ -388,7 +388,7 @@ def end_video_chat():
             videoChatlive.pop(to_username);
 
 
-@socketio.on('video chat request', namespace='/test')
+@socketio.on('video chat request', namespace='/cattalks')
 def video_chat_request(to_username):
 
     to_username = to_username.encode('ascii','ignore') #to convert from unicode to string
@@ -408,7 +408,7 @@ def video_chat_request(to_username):
 
         emit('video chat request',{"message":'Are you willing to video chat with '+from_username}, room = to_username);
 
-@socketio.on('video chat response', namespace = '/test')
+@socketio.on('video chat response', namespace = '/cattalks')
 def video_chat_response(to_username , answer): # maintain the same order as above for these 2 also
     
     from_username = session['username'];
