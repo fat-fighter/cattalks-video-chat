@@ -60,6 +60,7 @@ $(document).ready(function () {
 
 
 function load_friends() {
+    let first_friend = true;
     socket.emit("friends request", function (message) {
         if (message.success) {
             let friends_blocks_container = document.querySelector("#friend-blocks-container");
@@ -73,6 +74,11 @@ function load_friends() {
                         <span class="">` + friends[username] + `</span>
                     </div>
                 `
+
+                if (first_friend) {
+                    read_messages(document.querySelector("#friend-block-" + username));
+                    first_friend = false;
+                }
             }
         }
     });

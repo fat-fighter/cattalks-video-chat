@@ -161,7 +161,9 @@ body {
 
                 span {
                     display: inline-block;
-                    max-width: calc(50% - 250px);
+                    width: calc(50% - 250px);
+                    max-width: 400px;
+                    min-width: 300px;
                     padding: 10px 20px;
                 }
 
@@ -240,6 +242,47 @@ body {
                     background-color: rgb(100, 100, 150);
                 }
             }
+        }
+    }
+
+    #video-wrapper {
+        display: none;
+        width: calc(100% - 600px);
+        height: calc(100vh - 62px);
+        left: 600px;
+        position: absolute;
+
+        #video-element {
+            width: 640px;
+            height: 480px;
+            background-color: #666;
+        }
+
+        #image-element {
+            width: 640px;
+            height: 480px;
+            background-color: #666;
+        }
+
+        #canvas-element {
+            width: 640px;
+            height: 480px;
+            display: none;
+        }
+    }
+
+    &.video-mode {
+        #friends-container {
+            display: none;
+        }
+
+        #message-wrapper {
+            width: 600px;
+            left: 0;
+        }
+
+        #video-wrapper {
+            display: block;
         }
     }
 }

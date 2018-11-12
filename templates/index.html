@@ -24,7 +24,7 @@
         <a href="{{ url_for('logout') }}">{{ name }}</a>
     </div>
 </div>
-<div id="wrapper">
+<div id="wrapper" class="video-mode">
     <div id="friends-container">
         <div id="request-form">
             <div>Connect with a Cat</div>
@@ -41,7 +41,64 @@
             <input type="button" value="Send" onclick="send_message()">
         </div>
     </div>
+    <div id="video-wrapper">
+        <video autoplay="true" id="video-element"></video>
+        <img id="image-element"></img>
+        <canvas id="canvas-element"></canvas>
+    </div>
 
 </div>
 </div>
+
+<script type="text/javascript">
+    var video = document.querySelector("#video-element");
+    let canvas = document.querySelector("#canvas-element");
+    let ctx = canvas.getContext('2d');
+
+    let img = document.querySelector("#image-element");
+
+    var localMediaStream = null;
+
+    var constraints = {
+        video: true
+    }
+
+    function sendSnapshot() {
+        if (!localMediaStream) {
+            return;
+        }
+
+        ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 0, 0, 300, 150);
+
+        let dataURL = canvas.toDataURL('image/jpeg');
+        socket.emit('input image', dataURL);
+    }
+
+    if (navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia(constraints)
+            .then(function (stream) {
+                video.srcObject = stream;
+                localMediaStream = stream;
+
+                setInterval(function () {
+                    sendSnapshot();
+                }, 50);
+            }
+            )
+            .catch(function (err0r) {
+                console.log("Video Streaming blocked");
+            })
+    }
+
+    socket.on('video feed', function (data) {
+        img.src = data.data
+        console.log(data.message);
+    });
+
+    socket.on('video chat response', function (data) {
+        console.log(data);
+    });
+
+    socket.emit('video chat request', '<USERNAME TO CHAT WITH>');
+</script>
 {% endblock %}

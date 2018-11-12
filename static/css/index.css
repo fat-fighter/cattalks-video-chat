@@ -142,7 +142,9 @@ body {
 }
 #wrapper #message-wrapper #messages-container .message span {
   display: inline-block;
-  max-width: calc(50% - 250px);
+  width: calc(50% - 250px);
+  max-width: 400px;
+  min-width: 300px;
   padding: 10px 20px;
 }
 #wrapper #message-wrapper #messages-container .message.log {
@@ -207,6 +209,38 @@ body {
 }
 #wrapper #message-wrapper #message-form input[type=button]:active {
   background-color: #646496;
+}
+#wrapper #video-wrapper {
+  display: none;
+  width: calc(100% - 600px);
+  height: calc(100vh - 62px);
+  left: 600px;
+  position: absolute;
+}
+#wrapper #video-wrapper #video-element {
+  width: 640px;
+  height: 480px;
+  background-color: #666;
+}
+#wrapper #video-wrapper #image-element {
+  width: 640px;
+  height: 480px;
+  background-color: #666;
+}
+#wrapper #video-wrapper #canvas-element {
+  width: 640px;
+  height: 480px;
+  display: none;
+}
+#wrapper.video-mode #friends-container {
+  display: none;
+}
+#wrapper.video-mode #message-wrapper {
+  width: 600px;
+  left: 0;
+}
+#wrapper.video-mode #video-wrapper {
+  display: block;
 }
 
 /*# sourceMappingURL=index.css.map */
