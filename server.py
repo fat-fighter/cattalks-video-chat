@@ -5,8 +5,10 @@ import logging
 from time import sleep
 from sys import stdout
 
+import time
+
 from flask_pymongo import PyMongo
-from flask_socketio import SocketIO, emit, join_room
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask import Flask, Response, render_template, url_for, request, session, redirect
 
 app = Flask(__name__)
@@ -18,6 +20,12 @@ app.config["MONGO_URI"] = "mongodb://127.0.0.1:27017/cattalks"
 
 mongo = PyMongo(app)
 socketio = SocketIO(app)
+
+
+
+videoChatlive = {}; # stores the matching pair for the users between which video chat is live
+
+clientsActive = {}; #keep a table for listing which clients are currently active
 
 
 @app.route("/")
@@ -99,6 +107,11 @@ def join_new_client():
     username = session["username"]
 
     username = username.encode('ascii', 'ignore')
+
+    app.logger.info(username+" has joined (join callback) into Cat Talks ");
+
+    clientsActive[username] = True;
+
     join_room(username)
 
 
@@ -292,8 +305,125 @@ def send_message(username, text):
 
     return {"success": True}
 
+# VIDEO PART added by DEV
+
+@socketio.on('input image', namespace='/test')
+def input_message(inp):
+
+    username = session['username'];
+
+    if username in videoChatlive: 
+        to_username = videoChatlive[username];
+        if to_username in clientsActive:
+            emit("video feed",{"data": inp, "message":"Sending the frame of peer"}, room = to_username);
+        else:
+            emit("video feed",{"data": inp, "message": "Peer disconnected"}, room = username);
+
+            videoChatlive.pop(username);
+            if to_username in videoChatlive: # possible that same username , (tricky case , do not handle!)
+                videoChatlive.pop(to_username);
+
+
+@socketio.on('disconnect', namespace='/test')
+def disconnect_user():
+    username = session['username']
+
+    if username in videoChatlive:
+        to_username = videoChatlive[username];
+        if to_username in clientsActive:
+            emit("video feed",{"data":None , "message": "End video chat"},room = to_username);
+
+        app.logger.info("video chat ended between "+username+" and "+to_username);
+
+        videoChatlive.pop(username);
+        if to_username in videoChatlive: # possible that same username , (tricky case , do not handle!)
+            videoChatlive.pop(to_username);
+
+    if username in clientsActive:
+        clientsActive.pop(username);
+
+    leave_room(username); 
+
+    session.pop('username',None);
+
+    app.logger.info(username+" has exited Cat Talks without logging out ");
+
+
+@socketio.on('leave', namespace = '/test') # when a client logs out , this event will be sent
+def leave_client():
+
+    username = session['username'];
+
+    if username in videoChatlive:
+        to_username = videoChatlive[username];
+        if to_username in clientsActive:
+            emit("video feed",{"data": None ,"message": "End video chat"},room = to_username);
+
+        app.logger.info("video chat ended between "+username+" and "+to_username);
+        videoChatlive.pop(username);
+        if to_username in videoChatlive: # possible that same username , (tricky case , do not handle!)
+            videoChatlive.pop(to_username);
+
+    if username in clientsActive:
+        clientsActive.pop(username);
+
+    leave_room(username); 
+
+    app.logger.info(username+" has exited Cat Talks by loggin out gracefully ");
+
+@socketio.on('end video chat', namespace = '/test')
+def end_video_chat():
+
+    username = session['username'];
+
+    if username in videoChatlive:
+        to_username = videoChatlive[username];
+        if(check_alive(to_username)):
+            emit("video feed",{"data": None, "message": "End video chat"},room = to_username);
+        else:
+            emit("video feed",{"data": None, "message": "End video chat"}, room = username);
+
+        app.logger.info("video chat ended between "+username+" and "+to_username);
+        if to_username in videoChatlive: # possible that same username , (tricky case , do not handle!)
+            videoChatlive.pop(to_username);
+
+
+@socketio.on('video chat request', namespace='/test')
+def video_chat_request(to_username):
+
+    to_username = to_username.encode('ascii','ignore') #to convert from unicode to string
+    from_username = session['username'];
+
+    app.logger.info(from_username+" has requested to video chat with"+to_username);
+
+    if to_username not in clientsActive:
+
+        emit('video chat response',{"success":0,"message":'No user currently active with username '+to_username}, room = from_username);
+    else:
+        if to_username in videoChatlive:
+            emit('video chat response',{"success":0,"message":'User : '+to_username+' is busy with another video chat'}, room = from_username);
+
+        if from_username in videoChatlive:
+            emit('video chat response',{"success":0,"message":'You are busy with another video chat'}, room = from_username);
+
+        emit('video chat request',{"message":'Are you willing to video chat with '+from_username}, room = to_username);
+
+@socketio.on('video chat response', namespace = '/test')
+def video_chat_response(to_username , answer): # maintain the same order as above for these 2 also
+    
+    from_username = session['username'];
+    to_username = to_username.encode('ascii','ignore') #to convert from unicode to string
+    answer = answer.encode('ascii','ignore') #to convert from unicode to string
+
+    if answer == 'YES': # if the answer is yes , pair them and show the live feeds to both
+        videoChatlive[to_username] = from_username;
+        videoChatlive[from_username] = to_username; #remember to clear both when the chat ends(figure this out somehow)
+        emit('video chat response',{"success":1,"message":'User with username '+to_username+' accepted your request'}, room = from_username);
+    else:
+        emit('video chat response',{"success":0,"message":'User with username '+to_username+' did not accepted your request'}, room = from_username);
+
 
 if __name__ == "__main__":
     # app.run(debug=True, host="0.0.0.0", port=6343)
-    # socketio.run(app, debug=True, host="127.0.0.1")
-    socketio.run(app, debug=True, host="0.0.0.0", port=6343)
+    socketio.run(app, debug=True, host="127.0.0.1")
+    # socketio.run(app, debug=True, host="0.0.0.0", port=6343)
