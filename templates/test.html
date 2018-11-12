@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta content="stuff, to, help, search, engines, not" name="keywords">
+    <meta content="What this page is about." name="description">
+    <meta content="Display Webcam Stream" name="title">
+    <title>Display Webcam Stream</title>
+
+    <style>
+
+        #container {
+             margin: 0px auto;
+             border: 10px #333 solid;
+         }
+         #videoElement {
+             width: 640px;
+             height: 480px;
+             background-color: #666;
+         }
+
+         #imageElement {
+             width: 640px;
+             height: 480px;
+             background-color: #666;
+         }
+
+         #canvasElement {
+             width: 640px;
+             height: 480px;
+             display: none;
+         }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <video autoplay="true" id="videoElement">
+        </video>
+        <img id="imageElement">
+    </div>
+
+    <canvas id="canvasElement"></canvas>
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha256-k2WSCIexGzOj3Euiig+TlR8gA0EmPjuc79OEeY5L45g="
+        crossorigin="anonymous"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
+    <script>
+        var video = document.querySelector("#videoElement");
+        let canvas = document.querySelector("#canvasElement");
+        let ctx = canvas.getContext('2d');
+
+        let img = document.querySelector("#imageElement");
+
+        var localMediaStream = null;
+
+        var constraints = {
+            video: true
+        }
+
+        console.log(io)
+        var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + "/test");
+
+        socket.on('connect', function () {
+            console.log('Connected!');
+        });
+
+        function sendSnapshot() {
+            if (!localMediaStream) {
+                return;
+            }
+
+            ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 0, 0, 300, 150);
+
+            let dataURL = canvas.toDataURL('image/jpeg');
+            socket.emit('input image', dataURL);
+        }
+
+        if (navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(function (stream) {
+                    video.srcObject = stream;
+                    localMediaStream = stream;
+
+                    setInterval(function () {
+                        sendSnapshot();
+                    }, 50);
+                })
+                .catch(function (err0r) {
+                    console.log("Video Streaming blocked");
+                })
+        }
+
+        socket.on('video feed', function (data) {
+            img.src = data.data
+        });
+    </script>
+</body>
+
+</html>

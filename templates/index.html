@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<link href="{{ url_for('static', filename='css/index.css') }}" rel="stylesheet">
+
+<script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/index.js') }}"></script>
+
+{% endblock %}
+
+{% block title %}Home{% endblock %}
+
+{% block body %}
+<div id="header">
+    <img src="{{ url_for('static', filename='img/pusheen.png')}}" id="logo">
+
+    <div id="logo-name">CatTalks</div>
+
+    <div id="name">
+        {% if false %}
+        <a href="{{ url_for('logout') }}" id="logout">Logout</a>
+        {% endif %}
+        <a href="{{ url_for('logout') }}">{{ name }}</a>
+    </div>
+</div>
+<div id="wrapper">
+    <div id="friends-container">
+        <div id="request-form">
+            <div>Connect with a Cat</div>
+            <input type="text" name="username" placeholder="Username" id="request-username-input">
+            <input type="button" onclick=send_message_request() value="+">
+        </div>
+        <div id="friend-blocks-container">
+        </div>
+    </div>
+    <div id="message-wrapper">
+        <div id="messages-container"></div>
+    </div>
+
+</div>
+</div>
+{% endblock %}
