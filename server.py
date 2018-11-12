@@ -6,7 +6,7 @@ from time import sleep
 from sys import stdout
 
 from flask_pymongo import PyMongo
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO, emit, join_room
 from flask import Flask, Response, render_template, url_for, request, session, redirect
 
 app = Flask(__name__)
@@ -92,6 +92,15 @@ def register():
 @socketio.on("connect", namespace="/users")
 def connect():
     print "client %s connected" % request.sid
+
+
+@socketio.on("join", namespace="/users")
+def join_new_client():
+    username = session["username"]
+
+    username = username.encode('ascii', 'ignore')
+    print "+" + username + "+"
+    join_room(username)
 
 
 def accept_message_request(user1, user2):
@@ -210,6 +219,18 @@ def read_request(username):
     }
 
 
+@socketio.on("feed request", namespace="/feed")
+def feed_request():
+    users = mongo.db.users
+
+    user = users.find_one({"username": session["username"]})
+
+    return {
+        "success": True,
+        "feed": user["feed"]
+    }
+
+
 @socketio.on("read receipt", namespace="/feed")
 def read_receipt(username):
     users = mongo.db.users
@@ -259,6 +280,18 @@ def send_message(username, text):
 
     users.update({"username": username1}, {"$set": {"feed": user1["feed"]}})
     users.update({"username": username2}, {"$set": {"feed": user2["feed"]}})
+
+    username1 = username1.encode('ascii', 'ignore')
+    username2 = username2.encode('ascii', 'ignore')
+
+    print "+" + username1 + "+"
+    emit(
+        "feed request", {"type": "sent", "text": text}, room=username1, namespace="/feed"
+    )
+    print "+" + username2 + "+"
+    emit(
+        "feed request", {"type": "recv", "text": text}, room=username2, namespace="/feed"
+    )
 
     return {"success": True}
 

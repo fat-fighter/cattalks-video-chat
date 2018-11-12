@@ -1,6 +1,6 @@
 var url;
 var active_user;
-var user_socket, feed_socket;
+var socket, feed_socket;
 
 let socket_config = {
     upgrade: false,
@@ -13,6 +13,9 @@ var request_username_input;
 function setup_user_socket() {
     user_socket = io.connect(url + "/users", socket_config);
     user_socket.on("connect", function () {
+        user_socket.emit("join", function () {
+            console.log("Joined room");
+        });
         console.log("Connected to namespace users");
     });
 }
@@ -21,6 +24,10 @@ function setup_feed_socket() {
     feed_socket = io.connect(url + "/feed", socket_config);
     feed_socket.on("connect", function () {
         console.log("Connected to namespace feed");
+    });
+
+    feed_socket.on("feed request", function (data) {
+        console.log(data);
     });
 }
 
@@ -74,7 +81,9 @@ function read_messages(elem) {
     elem.classList.add("active");
     let username = elem.id.split("-")[2];
 
-    if (active_user != null) {
+    document.querySelector("#message-wrapper").style.display = "block";
+
+    if (active_user != null && active_user != username) {
         document.querySelector("#friend-block-" + active_user).classList.remove("active");
     }
     active_user = username;
@@ -90,38 +99,44 @@ function read_messages(elem) {
 
                 messages_container.innerHTML += `
                     <div class="message ` + m.type + `">
-                        ` + m.text + `
+                        <span>` + m.text + `</span>
                     </div>
                 `;
             }
 
             if (message.feed.length > 0) {
-                messages_container.innerHTML += `<div class="unread-split">Unread Messages</div>`;
+                messages_container.innerHTML += `<div class="message log"><span>Unread Messages</span></div>`;
 
                 for (var index in message.feed) {
                     let m = message.feed[index];
 
                     messages_container.innerHTML += `
                     <div class="message ` + m.type + ` unread">
-                        ` + m.text + `
+                        <span>` + m.text + `</span>
                     </div>
                 `;
                 }
             }
+
+            feed_socket.emit("read receipt", username, function (res) {
+                if (!res.success) {
+                    console.log(res.message);
+                }
+            })
         }
     });
 }
 
 
-function send_message(m) {
-    // let message = document.querySelector()
+function send_message() {
+    let elem = document.querySelector("#message-text");
+    let m = elem.value;
+    elem.value = "";
+
 
     if (active_user != null) {
         feed_socket.emit("send message", active_user, m, function (message) {
-            if (message.success) {
-                console.log(message);
-            }
-            else {
+            if (!message.success) {
                 console.log("Error: " + message.message);
             }
         });
