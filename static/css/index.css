@@ -67,7 +67,7 @@ body {
   padding: 15px 0;
   text-align: center;
 }
-#wrapper #friends-container #request-form div {
+#wrapper #friends-container #request-form h3 {
   text-align: left;
   padding: 0 20px;
   margin-bottom: 10px;
@@ -101,7 +101,7 @@ body {
   background-color: #646496;
 }
 #wrapper #friends-container #friend-blocks-container {
-  height: calc(100% - 187px);
+  height: calc(100% - 287px);
   padding: 20px 0;
   overflow: auto;
 }
@@ -120,25 +120,41 @@ body {
 #wrapper #friends-container #friend-blocks-container .friend-block.active {
   background-color: #f7f7f7;
 }
-#wrapper #friends-container #friend-blocks-container {
-  height: 187px;
-  padding: 20px 0;
+#wrapper #friends-container #request-blocks-container {
+  height: 200px;
   overflow: auto;
+  text-align: center;
 }
-#wrapper #friends-container #friend-blocks-container .friend-block {
-  padding: 15px 50px;
+#wrapper #friends-container #request-blocks-container h3 {
   text-align: left;
+  padding: 0 20px;
+  margin-bottom: 10px;
+  height: 20px;
+  line-height: 20px;
   font-size: 14px;
-}
-#wrapper #friends-container #friend-blocks-container .friend-block img {
-  height: 40px;
-  margin-right: 15px;
-}
-#wrapper #friends-container #friend-blocks-container .friend-block.unread {
   font-weight: 600;
 }
-#wrapper #friends-container #friend-blocks-container .friend-block.active {
+#wrapper #friends-container #request-blocks-container .request-block {
+  padding: 15px 0;
+  font-size: 13px;
+  display: inline-block;
+  width: 270px;
+  text-align: left;
+}
+#wrapper #friends-container #request-blocks-container .request-block input[type=button] {
+  outline: none;
+  background: none;
+  padding: 5px 10px;
+  font-size: 20px;
+  line-height: 20px;
+  border: 1px solid transparent;
+  float: right;
+  display: block;
+  margin-top: -8px;
+}
+#wrapper #friends-container #request-blocks-container .request-block input[type=button]:hover {
   background-color: #f7f7f7;
+  border-color: gainsboro;
 }
 #wrapper #message-wrapper {
   width: calc(100% - 400px);

@@ -130,8 +130,10 @@ def accept_message_request(user1, user2):
     requests1 = user1["requests"]
     requests2 = user2["requests"]
 
-    requests1.pop(username2)
-    requests2.pop(username1)
+    if username2 in requests1:
+        requests1.pop(username2)
+    if username1 in requests2:
+        requests2.pop(username1)
 
     friends1 = user1["friends"]
     friends2 = user2["friends"]
@@ -139,14 +141,25 @@ def accept_message_request(user1, user2):
     friends1[username2] = user2["name"]
     friends2[username1] = user1["name"]
 
-    user1 = users.update(
+    emit(
+        "message request", {
+            "type": "response", "success": True, "user": username1, "name": user1["name"]
+        }, room=username2
+    )
+    emit(
+        "message request", {
+            "type": "response", "success": True, "user": username2, "name": user2["name"]
+        }, room=username1
+    )
+
+    users.update(
         {"username": username1}, {
             "$set": {
                 "feed": feed1, "requests": requests1, "friends": friends1
             }
         }
     )
-    user2 = users.update(
+    users.update(
         {"username": username2}, {
             "$set": {
                 "feed": feed2, "requests": requests2, "friends": friends2
@@ -162,13 +175,18 @@ def send_request(username):
 
     if user is not None:
         req_username = session["username"]
-        if req_username == username:
+        if req_username == username or req_username in user["friends"]:
             return {"success": False, "message": "Invalid request"}
 
         req_user = users.find_one({"username": req_username})
 
         requests = user["requests"]
-        requests[session["username"]] = session["name"]
+
+        flag = False
+        if req_username not in requests:
+            flag = True
+
+        requests[req_username] = session["name"]
 
         users.update(
             {"username": username}, {"$set": {"requests": requests}}
@@ -176,6 +194,12 @@ def send_request(username):
 
         if username in req_user["requests"]:
             accept_message_request(req_user, user)
+        elif flag:
+            emit(
+                "message request", {
+                    "type": "request", "user": session["username"], "name": session["name"]
+                }, room=username
+            )
 
         return {"success": True, "message": "Successful"}
 
@@ -190,7 +214,35 @@ def accept_request(username):
     user1 = users.find_one({"username": username})
     user2 = users.find_one({"username": session["username"]})
 
+    if username not in user2["requests"] or username in user2["friends"]:
+        return {"success": False, "message": "Invalid Request"}
+
     accept_message_request(user1, user2)
+
+    return {"success": True}
+
+
+@socketio.on("reject request", namespace="/cattalks")
+def reject_request(username):
+    users = mongo.db.users
+
+    user = users.find_one({"username": session["username"]})
+    requests = user["requests"]
+
+    if username not in requests:
+        return {"success": False, "message": "Invalid request"}
+
+    requests.pop(username)
+
+    emit(
+        "message request", {
+            "type": "response", "success": False, "user": session["username"], "name": session["name"]
+        }, room=username
+    )
+
+    users.update(
+        {"username": session["username"]}, {"$set": {"requests": requests}}
+    )
 
     return {"success": True}
 
@@ -363,10 +415,11 @@ def video_chat_end():
         if to_username in video_live_users:
             video_live_users.pop(to_username)
 
+    return {"success": True}
+
 
 @socketio.on("video chat request", namespace="/cattalks")
 def video_chat_request(to_username):
-    # to convert from unicode to string
     to_username = to_username.encode("ascii", "ignore")
     from_username = session["username"]
 
@@ -393,8 +446,7 @@ def video_chat_request(to_username):
 
 
 @socketio.on("video chat response", namespace="/cattalks")
-# maintain the same order as above for these 2 also
-def video_chat_reply(to_username, answer):
+def video_chat_response(to_username, answer):
     from_username = session["username"]
     to_username = to_username.encode("ascii", "ignore")
 
@@ -402,10 +454,9 @@ def video_chat_reply(to_username, answer):
         emit("video chat server response", {
              "success": False, "message": "Invalid response"})
     else:
-        # to convert from unicode to string
         answer = answer.encode("ascii", "ignore")
 
-        if answer == "YES":  # if the answer is yes , pair them and show the live feeds to both
+        if answer == "YES":
             video_live_users[to_username] = from_username
             video_live_users[from_username] = to_username
 
@@ -425,11 +476,11 @@ def video_chat_reply(to_username, answer):
                     room=username
                 )
 
-            del video_live_reqs[from_username]
+            video_live_reqs.pop(from_username)
         else:
             video_live_reqs[from_username].remove(to_username)
             if len(video_live_reqs[from_username]) == 0:
-                del video_live_reqs[from_username]
+                video_live_reqs.pop(from_username)
 
             emit(
                 "video chat server response",
