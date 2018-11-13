@@ -5,19 +5,25 @@ import logging
 from time import sleep
 from sys import stdout
 
+import time
+
 from flask_pymongo import PyMongo
-from flask_socketio import SocketIO, emit, join_room
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask import Flask, Response, render_template, url_for, request, session, redirect
 
 app = Flask(__name__)
 
-app.logger.addHandler(logging.StreamHandler(stdout))
-app.config['SECRET_KEY'] = 'cattalks'
+app.config["SECRET_KEY"] = "cattalks"
 app.config["MONGO_DBNAME"] = "cattalks"
 app.config["MONGO_URI"] = "mongodb://127.0.0.1:27017/cattalks"
 
 mongo = PyMongo(app)
 socketio = SocketIO(app)
+
+
+online_users = {}
+video_live_reqs = {}
+video_live_users = {}
 
 
 @app.route("/")
@@ -73,8 +79,8 @@ def register():
                 "name": request.form["name"],
                 "username": request.form["username"],
                 "password": hashpass,
-                "requests": [],
-                "friends": [],
+                "requests": {},
+                "friends": {},
                 "messages": {},
                 "feed": {}
             })
@@ -98,7 +104,10 @@ def connect():
 def join_new_client():
     username = session["username"]
 
-    username = username.encode('ascii', 'ignore')
+    username = username.encode("ascii", "ignore")
+
+    online_users[username] = True
+
     join_room(username)
 
 
@@ -121,23 +130,26 @@ def accept_message_request(user1, user2):
     requests1 = user1["requests"]
     requests2 = user2["requests"]
 
-    requests1.remove(username2)
-    requests2.remove(username1)
+    requests1.pop(username2)
+    requests2.pop(username1)
 
     friends1 = user1["friends"]
     friends2 = user2["friends"]
 
+    friends1[username2] = user2["name"]
+    friends2[username1] = user1["name"]
+
     user1 = users.update(
         {"username": username1}, {
             "$set": {
-                "feed": feed1, "requests": requests1, "friends": friends1 + [username2]
+                "feed": feed1, "requests": requests1, "friends": friends1
             }
         }
     )
     user2 = users.update(
         {"username": username2}, {
             "$set": {
-                "feed": feed2, "requests": requests2, "friends": friends2 + [username1]
+                "feed": feed2, "requests": requests2, "friends": friends2
             }
         }
     )
@@ -156,9 +168,7 @@ def send_request(username):
         req_user = users.find_one({"username": req_username})
 
         requests = user["requests"]
-
-        if session["username"] not in requests:
-            requests.append(session["username"])
+        requests[session["username"]] = session["name"]
 
         users.update(
             {"username": username}, {"$set": {"requests": requests}}
@@ -191,16 +201,16 @@ def friends_request():
 
     user = users.find_one({"username": session["username"]})
 
-    friends = user["messages"].keys() + user["feed"].keys()
+    friends = user["friends"]
     friends = {
-        username: users.find_one({"username": username})["name"]
+        username: (friends[username], username in user["feed"])
         for username in friends
     }
-    friends
 
     return {
         "success": True,
-        "friends": friends
+        "friends": friends,
+        "requests": user["requests"]
     }
 
 
@@ -243,7 +253,7 @@ def read_receipt(username):
             messages[username] = []
 
         messages[username].extend(feed[username])
-        del feed[username]
+        feed.pop(username)
 
         users.update(
             {"username": session["username"]}, {
@@ -265,7 +275,7 @@ def send_message(username, text):
     if username2 not in user1["friends"] or username1 not in user2["friends"]:
         return {"sucess": False, "message": "Invalid request"}
 
-    feed1 = user1["feed"]
+    feed1 = user1["messages"]
     feed1 = [] if username2 not in feed1 else feed1[username2]
 
     feed2 = user2["feed"]
@@ -274,14 +284,18 @@ def send_message(username, text):
     feed1.append({"type": "sent", "text": text})
     feed2.append({"type": "recv", "text": text})
 
-    user1["feed"][username2] = feed1
+    user1["messages"][username2] = feed1
     user2["feed"][username1] = feed2
 
-    users.update({"username": username1}, {"$set": {"feed": user1["feed"]}})
-    users.update({"username": username2}, {"$set": {"feed": user2["feed"]}})
+    users.update(
+        {"username": username1}, {"$set": {"messages": user1["messages"]}}
+    )
+    users.update(
+        {"username": username2}, {"$set": {"feed": user2["feed"]}}
+    )
 
-    username1 = username1.encode('ascii', 'ignore')
-    username2 = username2.encode('ascii', 'ignore')
+    username1 = username1.encode("ascii", "ignore")
+    username2 = username2.encode("ascii", "ignore")
 
     emit(
         "feed request", {"user": username2, "type": "sent", "text": text}, room=username1, namespace="/cattalks"
@@ -293,6 +307,140 @@ def send_message(username, text):
     return {"success": True}
 
 
+@socketio.on("input image", namespace="/cattalks")
+def input_message(inp):
+
+    username = session["username"]
+
+    if username in video_live_users:
+        to_username = video_live_users[username]
+        if to_username in online_users:
+            emit("video feed", {
+                "data": inp, "message": "next"
+            }, room=to_username)
+        else:
+            emit("video feed", {
+                "data": None, "message": "end"
+            }, room=username)
+
+            video_live_users.pop(username)
+            if to_username in video_live_users:
+                video_live_users.pop(to_username)
+
+
+@socketio.on("disconnect", namespace="/cattalks")
+def disconnect_user():
+    username = session["username"]
+
+    if username in video_live_users:
+        to_username = video_live_users[username]
+
+        emit("video feed", {"data": None, "message": "end"}, room=to_username)
+        emit("video feed", {"data": None, "message": "end"}, room=username)
+
+        video_live_users.pop(username)
+        if to_username in video_live_users:
+            video_live_users.pop(to_username)
+
+    if username in online_users:
+        online_users.pop(username)
+
+    leave_room(username)
+    session.clear()
+
+
+@socketio.on("video chat end", namespace="/cattalks")
+def video_chat_end():
+    username = session["username"]
+
+    if username in video_live_users:
+        to_username = video_live_users[username]
+
+        emit("video feed", {"data": None, "message": "end"}, room=to_username)
+        emit("video feed", {"data": None, "message": "end"}, room=username)
+
+        video_live_users.pop(username)
+        if to_username in video_live_users:
+            video_live_users.pop(to_username)
+
+
+@socketio.on("video chat request", namespace="/cattalks")
+def video_chat_request(to_username):
+    # to convert from unicode to string
+    to_username = to_username.encode("ascii", "ignore")
+    from_username = session["username"]
+
+    if from_username in video_live_users:
+        emit("video chat server response", {
+             "success": 0, "message": "You are busy with another video chat"}, room=from_username)
+
+    elif to_username not in online_users:
+        emit("video chat server response", {
+             "success": 0, "message": "No user currently active with username "+to_username}, room=from_username)
+
+    elif to_username in video_live_users:
+        emit("video chat server response", {
+             "success": 0, "message": "User : "+to_username+" is busy with another video chat"}, room=from_username)
+
+    else:
+        if to_username not in video_live_reqs:
+            video_live_reqs[to_username] = set()
+
+        video_live_reqs[to_username].add(from_username)
+
+        emit("video chat server question", {
+             "message": "Are you willing to video chat with "+from_username, "user": from_username}, room=to_username)
+
+
+@socketio.on("video chat response", namespace="/cattalks")
+# maintain the same order as above for these 2 also
+def video_chat_reply(to_username, answer):
+    from_username = session["username"]
+    to_username = to_username.encode("ascii", "ignore")
+
+    if (from_username not in video_live_reqs) or (to_username not in video_live_reqs[from_username]):
+        emit("video chat server response", {
+             "success": False, "message": "Invalid response"})
+    else:
+        # to convert from unicode to string
+        answer = answer.encode("ascii", "ignore")
+
+        if answer == "YES":  # if the answer is yes , pair them and show the live feeds to both
+            video_live_users[to_username] = from_username
+            video_live_users[from_username] = to_username
+
+            emit("video chat server response", {
+                 "success": True, "message": "Connection established with " + from_username}, room=to_username)
+            emit("video chat server response", {
+                 "success": True, "message": "Connection established with " + to_username}, room=from_username)
+
+            video_live_reqs[from_username].remove(to_username)
+            for username in video_live_reqs[from_username]:
+                emit(
+                    "video chat server response",
+                    {
+                        "success": False,
+                        "message": "User with username " + from_username + " did not accept your request"
+                    },
+                    room=username
+                )
+
+            del video_live_reqs[from_username]
+        else:
+            video_live_reqs[from_username].remove(to_username)
+            if len(video_live_reqs[from_username]) == 0:
+                del video_live_reqs[from_username]
+
+            emit(
+                "video chat server response",
+                {
+                    "success": False,
+                    "message": "User with username " + from_username + " did not accept your request"
+                },
+                room=to_username
+            )
+
+
 if __name__ == "__main__":
-    # socketio.run(app, debug=True, host="127.0.0.1")
-    socketio.run(app, debug=True, host="0.0.0.0", port=6343)
+    socketio.run(app, debug=True, host="127.0.0.1")
+    # socketio.run(app, host="0.0.0.0", port=6343)

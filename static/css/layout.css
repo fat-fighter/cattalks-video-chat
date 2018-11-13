@@ -1,4 +1,11 @@
-@import url("https://fonts.googleapis.com/css?family=Montserrat");
+@font-face {
+  font-family: "Monstserrat";
+  src: url("/static/css/fonts/montserrat/Montserrat-Regular.ttf"), url("/static/css/fonts/montserrat/Montserrat-Bold.ttf");
+}
+@font-face {
+  font-family: "Spicy Rice";
+  src: url("/static/css/fonts/spicy-rice/SpicyRice-Regular.ttf");
+}
 body {
   height: 100vh;
   width: 100vw;

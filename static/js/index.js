@@ -1,5 +1,6 @@
 var socket;
 var active_user;
+var on_call = false, on_wait = false;
 
 let socket_config = {
     upgrade: false,
@@ -11,8 +12,6 @@ var request_username_input;
 
 function setup_user_socket() {
     socket.on("connect", function () {
-        console.log("Connected to namespace users");
-
         socket.emit("join", function () {
             console.log("Joined room");
         });
@@ -31,7 +30,16 @@ function setup_feed_socket() {
                 </div>
             `;
 
-            target.scrollTop(target.height() + 100);
+            socket.emit("read receipt", active_user, function (res) {
+                if (!res.success) {
+                    alert(res.message);
+                }
+            })
+
+            target.scrollTop(target.prop("scrollHeight"));
+        }
+        else {
+            document.querySelector("#friend-block-" + message.user).classList.add("unread");
         }
     });
 }
@@ -56,6 +64,8 @@ $(document).ready(function () {
     load_friends();
 
     request_username_input = document.querySelector("#request-username-input");
+
+    setup_video_elements();
 });
 
 
@@ -71,9 +81,13 @@ function load_friends() {
                 friends_blocks_container.innerHTML += `
                     <div class="friend-block" id ="friend-block-` + username + `" onclick="read_messages(this)">
                         <img src="/static/img/cat-profile.png">
-                        <span class="">` + friends[username] + `</span>
+                        <span class="">` + friends[username][0] + `</span>
                     </div>
                 `
+
+                if (friends[username][1]) {
+                    document.querySelector("#friend-block-" + username).classList.add("unread");
+                }
 
                 if (first_friend) {
                     read_messages(document.querySelector("#friend-block-" + username));
@@ -89,11 +103,8 @@ function send_message_request() {
     let username = request_username_input.value;
     if (username != "") {
         socket.emit("send request", username, function (message) {
-            if (message.success) {
-                console.log("Info: " + message.message);
-            }
-            else {
-                console.log("Error: " + message.message);
+            if (!message.success) {
+                alert("Error: " + message.message);
             }
         });
     }
@@ -110,6 +121,7 @@ function read_messages(elem) {
         document.querySelector("#friend-block-" + active_user).classList.remove("active");
     }
     active_user = username;
+    document.querySelector("#friend-block-" + username).classList.remove("unread");
 
     socket.emit("read request", username, function (message) {
         if (message.success) {
@@ -144,11 +156,11 @@ function read_messages(elem) {
 
             socket.emit("read receipt", username, function (res) {
                 if (!res.success) {
-                    console.log(res.message);
+                    alert(res.message);
                 }
             })
 
-            target.scrollTop(target.height() + 100);
+            target.scrollTop(target.prop("scrollHeight"));
         }
     });
 }
@@ -163,8 +175,87 @@ function send_message() {
     if (active_user != null && m != "") {
         socket.emit("send message", active_user, m, function (message) {
             if (!message.success) {
-                console.log("Error: " + message.message);
+                alert("Error: " + message.message);
             }
         });
+    }
+}
+
+
+function setup_video_elements() {
+    let video = document.querySelector("#video-element");
+    let canvas = document.querySelector("#canvas-element");
+    let ctx = canvas.getContext('2d');
+
+    let img = document.querySelector("#image-element");
+
+    var localMediaStream;
+    var interval;
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function (stream) {
+            video.srcObject = stream;
+            localMediaStream = stream;
+
+            interval = setInterval(function () {
+                if (!localMediaStream) {
+                    return;
+                }
+
+                ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 0, 0, 300, 150);
+
+                let dataURL = canvas.toDataURL('image/jpeg');
+                socket.emit('input image', dataURL);
+            }, 50);
+        }
+        )
+        .catch(function (error) {
+            alert("Video calling blocked by browser!")
+        })
+
+    socket.on("video chat server question", function (message) {
+        var response = "NO";
+        if (!on_call && confirm("Do you want to start a video session with " + message.user)) {
+            response = "YES";
+        }
+        socket.emit("video chat response", message.user, response);
+    });
+
+    socket.on("video chat server response", function (message) {
+        if (message.success) {
+            on_call = true;
+            on_wait = false;
+            document.querySelector("#wrapper").classList.add("video-mode");
+            document.querySelector("#call-button").value = "End";
+
+            socket.on("video feed", function (data) {
+                if (data.message == "end") {
+                    on_call = false;
+                    alert("Video call ended!");
+
+                    document.querySelector("#wrapper").classList.remove("video-mode");
+                    document.querySelector("#call-button").value = "Call";
+                }
+                else {
+                    on_call = true;
+                    img.src = data.data;
+                }
+            });
+        }
+        else {
+            alert("Error: " + message.message);
+        }
+    });
+}
+
+function toggle_video_call() {
+    if (!on_wait && active_user != null) {
+        if (on_call) {
+            socket.emit("video chat end");
+        }
+        else {
+            on_wait = true;
+            socket.emit("video chat request", active_user);
+        }
     }
 }

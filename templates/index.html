@@ -3,8 +3,7 @@
 {% block head %}
 <link href="{{ url_for('static', filename='css/index.css') }}" rel="stylesheet">
 
-<script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
-<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='js/index.js') }}"></script>
 
 {% endblock %}
@@ -24,7 +23,7 @@
         <a href="{{ url_for('logout') }}">{{ name }}</a>
     </div>
 </div>
-<div id="wrapper" class="video-mode">
+<div id="wrapper">
     <div id="friends-container">
         <div id="request-form">
             <div>Connect with a Cat</div>
@@ -33,10 +32,13 @@
         </div>
         <div id="friend-blocks-container">
         </div>
+        <div id="request-blocks-container">
+        </div>
     </div>
     <div id="message-wrapper">
         <div id="messages-container"></div>
         <div id="message-form">
+            <input type="button" value="Call" onclick="toggle_video_call();" id="call-button">
             <input type="text" placeholder="Type a message" id="message-text">
             <input type="button" value="Send" onclick="send_message()">
         </div>
@@ -50,55 +52,4 @@
 </div>
 </div>
 
-<script type="text/javascript">
-    var video = document.querySelector("#video-element");
-    let canvas = document.querySelector("#canvas-element");
-    let ctx = canvas.getContext('2d');
-
-    let img = document.querySelector("#image-element");
-
-    var localMediaStream = null;
-
-    var constraints = {
-        video: true
-    }
-
-    function sendSnapshot() {
-        if (!localMediaStream) {
-            return;
-        }
-
-        ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 0, 0, 300, 150);
-
-        let dataURL = canvas.toDataURL('image/jpeg');
-        socket.emit('input image', dataURL);
-    }
-
-    if (navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia(constraints)
-            .then(function (stream) {
-                video.srcObject = stream;
-                localMediaStream = stream;
-
-                setInterval(function () {
-                    sendSnapshot();
-                }, 50);
-            }
-            )
-            .catch(function (err0r) {
-                console.log("Video Streaming blocked");
-            })
-    }
-
-    socket.on('video feed', function (data) {
-        img.src = data.data
-        console.log(data.message);
-    });
-
-    socket.on('video chat response', function (data) {
-        console.log(data);
-    });
-
-    socket.emit('video chat request', '<USERNAME TO CHAT WITH>');
-</script>
 {% endblock %}
