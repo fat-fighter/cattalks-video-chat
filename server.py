@@ -41,6 +41,10 @@ def index():
 
 @app.route("/logout")
 def logout():
+
+
+    leave_client(session);
+
     session.clear()
 
     return redirect(url_for("index"))
@@ -401,6 +405,33 @@ def disconnect_user():
     session.clear()
 
 
+def leave_client(session):
+
+    username = session['username'];
+
+    if username in video_live_users:
+        to_username = video_live_users[username];
+        if to_username in online_users:
+            emit("video feed", {"data": None, "message": "end"}, room=to_username, namespace="/cattalks")
+
+        emit("video feed", {"data": None, "message": "end"}, room=username, namespace="/cattalks")
+
+        app.logger.info("video chat ended between "+username+" and "+to_username);
+
+        video_live_users.pop(username);
+
+        if to_username in video_live_users:
+            video_live_users.pop(to_username);
+
+    if username in online_users:
+        online_users.pop(username);
+
+    #leave_room(username); # Not required , flask will autpomatically leave the room when the browser is closed (disconnect call)
+    print(username+" has exited Cat Talks by logging out gracefully ")
+    app.logger.info(username+" has exited Cat Talks by logging out gracefully ");
+
+
+
 @socketio.on("video chat end", namespace="/cattalks")
 def video_chat_end():
     username = session["username"]
@@ -493,5 +524,5 @@ def video_chat_response(to_username, answer):
 
 
 if __name__ == "__main__":
-    socketio.run(app, debug=True, host="127.0.0.1")
+    socketio.run(app, debug=False, host="127.0.0.1")
     # socketio.run(app, host="0.0.0.0", port=6343)
