@@ -38,6 +38,10 @@ def index():
 
 @app.route("/logout")
 def logout():
+
+
+    leave_client(session);
+
     session.clear()
 
     return redirect(url_for("index"))
@@ -396,6 +400,26 @@ def disconnect_user():
 
     leave_room(username)
     session.clear()
+
+
+def leave_client(session):
+
+    username = session['username'];
+
+    if username in video_live_users:
+        to_username = video_live_users[username];
+        if to_username in online_users:
+            emit("video feed", {"data": None, "message": "end"}, room=to_username, namespace="/cattalks")
+
+        emit("video feed", {"data": None, "message": "end"}, room=username, namespace="/cattalks")
+
+        video_live_users.pop(username);
+
+        if to_username in video_live_users:
+            video_live_users.pop(to_username);
+
+    if username in online_users:
+        online_users.pop(username);
 
 
 @socketio.on("video chat end", namespace="/cattalks")
