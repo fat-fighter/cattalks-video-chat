@@ -1,11 +1,8 @@
 import json
 import bcrypt
-import logging
 
 from time import sleep
 from sys import stdout
-
-import time
 
 from flask_pymongo import PyMongo
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -493,5 +490,4 @@ def video_chat_response(to_username, answer):
 
 
 if __name__ == "__main__":
-    socketio.run(app, debug=True, host="127.0.0.1")
-    # socketio.run(app, host="0.0.0.0", port=6343)
+    socketio.run(app, host="0.0.0.0", port=6343)

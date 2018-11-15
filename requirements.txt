@@ -1,0 +1,5 @@
+eventlet
+bcrypt
+flask
+flask-socketio
+flask-mongodb
